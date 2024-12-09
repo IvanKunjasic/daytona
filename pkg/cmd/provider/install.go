@@ -10,17 +10,15 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/huh"
 	apiclient_util "github.com/daytonaio/daytona/internal/util/apiclient"
 	"github.com/daytonaio/daytona/pkg/apiclient"
+	cmd_common "github.com/daytonaio/daytona/pkg/cmd/common"
 	"github.com/daytonaio/daytona/pkg/common"
 	"github.com/daytonaio/daytona/pkg/os"
-	"github.com/daytonaio/daytona/pkg/provider/manager"
+	"github.com/daytonaio/daytona/pkg/runner/providermanager"
 	"github.com/daytonaio/daytona/pkg/views"
 	"github.com/daytonaio/daytona/pkg/views/provider"
-	"github.com/daytonaio/daytona/pkg/views/targetconfig"
 	views_util "github.com/daytonaio/daytona/pkg/views/util"
-	"github.com/docker/docker/pkg/stringid"
 	"github.com/spf13/cobra"
 )
 
@@ -29,12 +27,29 @@ var yesFlag bool
 var providerInstallCmd = &cobra.Command{
 	Use:     "install",
 	Short:   "Install provider",
-	Args:    cobra.NoArgs,
+	Args:    cobra.MaximumNArgs(1),
 	Aliases: []string{"i"},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var selectedRunnerId string
+
 		apiClient, err := apiclient_util.GetApiClient(nil)
 		if err != nil {
 			return err
+		}
+
+		if len(args) == 0 {
+			selectedRunner, err := cmd_common.GetRunnerFlow(apiClient, "Manage Providers")
+			if err != nil {
+				if common.IsCtrlCAbort(err) {
+					return nil
+				} else {
+					return err
+				}
+			}
+
+			selectedRunnerId = selectedRunner.Id
+		} else {
+			selectedRunnerId = args[0]
 		}
 
 		serverConfig, res, err := apiClient.ServerAPI.GetConfigExecute(apiclient.ApiGetConfigRequest{})
@@ -42,7 +57,7 @@ var providerInstallCmd = &cobra.Command{
 			return apiclient_util.HandleErrorResponse(res, err)
 		}
 
-		providerManager := manager.GetProviderManager(&manager.ProviderManagerConfig{RegistryUrl: serverConfig.RegistryUrl})
+		providerManager := providermanager.GetProviderManager(&providermanager.ProviderManagerConfig{RegistryUrl: serverConfig.RegistryUrl})
 
 		providersManifest, err := providerManager.GetProvidersManifest()
 		if err != nil {
@@ -61,7 +76,7 @@ var providerInstallCmd = &cobra.Command{
 		providerList := GetProviderListFromManifest(providersManifestLatest)
 		specificProviderName := "Select a specific version"
 		specificProviderVersion := ""
-		providerList = append(providerList, apiclient.Provider{Name: specificProviderName, Label: &specificProviderName, Version: specificProviderVersion})
+		providerList = append(providerList, apiclient.ProviderInfo{Name: specificProviderName, Label: &specificProviderName, Version: specificProviderVersion})
 
 		providerToInstall, err := provider.GetProviderFromPrompt(provider.ProviderListToView(providerList), "Choose a Provider to Install", false)
 		if err != nil {
@@ -93,83 +108,12 @@ var providerInstallCmd = &cobra.Command{
 			}
 		}
 
-		err = InstallProvider(apiClient, *providerToInstall, providersManifest)
+		err = InstallProvider(apiClient, selectedRunnerId, *providerToInstall, providersManifest)
 		if err != nil {
 			return err
 		}
 
 		views.RenderInfoMessageBold(fmt.Sprintf("Provider %s has been successfully installed", providerToInstall.Name))
-
-		targets, res, err := apiClient.TargetAPI.ListTargets(context.Background()).Execute()
-		if err != nil {
-			return apiclient_util.HandleErrorResponse(res, err)
-		}
-
-		if slices.ContainsFunc(targets, func(t apiclient.TargetDTO) bool {
-			return t.TargetConfig.ProviderInfo.Name == providerToInstall.Name
-		}) {
-			return nil
-		}
-
-		if !yesFlag {
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewConfirm().
-						Title("Add a Target?").
-						Value(&yesFlag),
-				),
-			).WithTheme(views.GetCustomTheme())
-
-			err := form.Run()
-			if err != nil {
-				return err
-			}
-		}
-
-		if yesFlag {
-			targetConfigManifest, res, err := apiClient.ProviderAPI.GetTargetConfigManifest(context.Background(), providerToInstall.Name).Execute()
-			if err != nil {
-				return apiclient_util.HandleErrorResponse(res, err)
-			}
-
-			targetConfigToSet := &targetconfig.TargetConfigView{
-				Options: "{}",
-				ProviderInfo: targetconfig.ProviderInfo{
-					Name:    providerToInstall.Name,
-					Version: providerToInstall.Version,
-					Label:   providerToInstall.Label,
-				},
-			}
-
-			err = targetconfig.NewTargetConfigNameInput(&targetConfigToSet.Name, []string{})
-			if err != nil {
-				return err
-			}
-
-			err = targetconfig.SetTargetConfigForm(targetConfigToSet, *targetConfigManifest)
-			if err != nil {
-				return err
-			}
-
-			id := stringid.GenerateRandomID()
-			id = stringid.TruncateID(id)
-
-			targetData := apiclient.CreateTargetDTO{
-				Id:               id,
-				Name:             targetConfigToSet.Name,
-				TargetConfigName: targetConfigToSet.Name,
-			}
-
-			_, res, err = apiClient.TargetAPI.CreateTarget(context.Background()).Target(targetData).Execute()
-			if err != nil {
-				return apiclient_util.HandleErrorResponse(res, err)
-			}
-			if err != nil {
-				return err
-			}
-
-			views.RenderInfoMessage("Target set successfully")
-		}
 		return nil
 	},
 }
@@ -178,11 +122,11 @@ func init() {
 	providerInstallCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Automatically confirm any prompts")
 }
 
-func GetProviderListFromManifest(manifest *manager.ProvidersManifest) []apiclient.Provider {
-	providerList := []apiclient.Provider{}
+func GetProviderListFromManifest(manifest *providermanager.ProvidersManifest) []apiclient.ProviderInfo {
+	providerList := []apiclient.ProviderInfo{}
 	for providerName, providerManifest := range *manifest {
 		for version := range providerManifest.Versions {
-			providerList = append(providerList, apiclient.Provider{
+			providerList = append(providerList, apiclient.ProviderInfo{
 				Name:    providerName,
 				Label:   providerManifest.Label,
 				Version: version,
@@ -190,7 +134,7 @@ func GetProviderListFromManifest(manifest *manager.ProvidersManifest) []apiclien
 		}
 	}
 
-	slices.SortFunc(providerList, func(a, b apiclient.Provider) int {
+	slices.SortFunc(providerList, func(a, b apiclient.ProviderInfo) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
@@ -206,19 +150,19 @@ func ConvertOSToStringMap(downloadUrls map[os.OperatingSystem]string) map[string
 	return stringMap
 }
 
-func InstallProvider(apiClient *apiclient.APIClient, providerToInstall provider.ProviderView, providersManifest *manager.ProvidersManifest) error {
+func InstallProvider(apiClient *apiclient.APIClient, runnerId string, providerToInstall provider.ProviderView, providersManifest *providermanager.ProvidersManifest) error {
 	downloadUrls := ConvertOSToStringMap((*providersManifest)[providerToInstall.Name].Versions[providerToInstall.Version].DownloadUrls)
+
 	err := views_util.WithInlineSpinner("Installing", func() error {
-		res, err := apiClient.ProviderAPI.InstallProviderExecute(apiclient.ApiInstallProviderRequest{}.Provider(apiclient.InstallProviderRequest{
+		res, err := apiClient.ProviderAPI.InstallProvider(context.Background(), runnerId).InstallProviderDto(apiclient.InstallProviderDTO{
 			Name:         providerToInstall.Name,
 			DownloadUrls: downloadUrls,
-		}))
-
+		}).Execute()
 		if err != nil {
 			return apiclient_util.HandleErrorResponse(res, err)
 		}
 
-		return nil
+		return cmd_common.AwaitProviderInstalled(runnerId, providerToInstall.Name, providerToInstall.Version)
 	})
 
 	return err

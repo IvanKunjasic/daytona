@@ -244,7 +244,7 @@ func (a *Agent) updateWorkspaceMetadata() error {
 	uptime := a.uptime()
 	res, err := apiClient.WorkspaceAPI.SetWorkspaceMetadata(context.Background(), a.Config.WorkspaceId).SetMetadata(apiclient.SetWorkspaceMetadata{
 		Uptime:    uptime,
-		GitStatus: conversion.ToGitStatusDTO(gitStatus),
+		GitStatus: conversion.ToApiClientGitStatus(gitStatus),
 	}).Execute()
 	if err != nil {
 		return apiclient_util.HandleErrorResponse(res, err)

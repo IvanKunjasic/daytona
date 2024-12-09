@@ -12,9 +12,10 @@ import (
 	internal_util "github.com/daytonaio/daytona/internal/util"
 	apiclient_util "github.com/daytonaio/daytona/internal/util/apiclient"
 	"github.com/daytonaio/daytona/pkg/apiclient"
+	cmd_common "github.com/daytonaio/daytona/pkg/cmd/common"
 	"github.com/daytonaio/daytona/pkg/cmd/provider"
 	"github.com/daytonaio/daytona/pkg/common"
-	"github.com/daytonaio/daytona/pkg/provider/manager"
+	"github.com/daytonaio/daytona/pkg/runner/providermanager"
 	"github.com/daytonaio/daytona/pkg/views"
 	provider_view "github.com/daytonaio/daytona/pkg/views/provider"
 	"github.com/daytonaio/daytona/pkg/views/targetconfig"
@@ -66,14 +67,14 @@ func TargetConfigCreationFlow(ctx context.Context, apiClient *apiclient.APIClien
 		return nil, apiclient_util.HandleErrorResponse(res, err)
 	}
 
-	providersManifest, err := manager.GetProviderManager(&manager.ProviderManagerConfig{
+	providersManifest, err := providermanager.GetProviderManager(&providermanager.ProviderManagerConfig{
 		RegistryUrl: serverConfig.RegistryUrl,
 	}).GetProvidersManifest()
 	if err != nil {
 		log.Error(err)
 	}
 
-	var latestProviders []apiclient.Provider
+	var latestProviders []apiclient.ProviderInfo
 	if providersManifest != nil {
 		providersManifestLatest := providersManifest.GetLatestVersions()
 		if providersManifestLatest == nil {
@@ -107,7 +108,17 @@ func TargetConfigCreationFlow(ctx context.Context, apiClient *apiclient.APIClien
 		if providersManifest == nil {
 			return nil, errors.New("could not get providers manifest")
 		}
-		err = provider.InstallProvider(apiClient, *selectedProvider, providersManifest)
+
+		selectedRunner, err := cmd_common.GetRunnerFlow(apiClient, "Manage Providers")
+		if err != nil {
+			if common.IsCtrlCAbort(err) {
+				return nil, nil
+			} else {
+				return nil, err
+			}
+		}
+
+		err = provider.InstallProvider(apiClient, selectedRunner.Id, *selectedProvider, providersManifest)
 		if err != nil {
 			return nil, err
 		}
@@ -135,12 +146,7 @@ func TargetConfigCreationFlow(ctx context.Context, apiClient *apiclient.APIClien
 		return nil, err
 	}
 
-	targetConfigManifest, res, err := apiClient.ProviderAPI.GetTargetConfigManifest(context.Background(), selectedProvider.Name).Execute()
-	if err != nil {
-		return nil, apiclient_util.HandleErrorResponse(res, err)
-	}
-
-	err = targetconfig.SetTargetConfigForm(selectedTargetConfig, *targetConfigManifest)
+	err = targetconfig.SetTargetConfigForm(selectedTargetConfig, selectedProvider.TargetConfigManifest)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +154,7 @@ func TargetConfigCreationFlow(ctx context.Context, apiClient *apiclient.APIClien
 	targetConfigData := apiclient.AddTargetConfigDTO{
 		Name:    selectedTargetConfig.Name,
 		Options: selectedTargetConfig.Options,
-		ProviderInfo: apiclient.TargetProviderInfo{
+		ProviderInfo: apiclient.ProviderInfo{
 			Name:    selectedProvider.Name,
 			Version: selectedProvider.Version,
 			Label:   selectedProvider.Label,

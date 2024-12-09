@@ -49,7 +49,7 @@ func (s *TargetService) RemoveTarget(ctx context.Context, targetId string) error
 		return s.handleRemoveError(ctx, t, err)
 	}
 
-	err = s.createJob(ctx, t.Id, models.JobActionDelete)
+	err = s.createJob(ctx, t.Id, t.TargetConfig.ProviderInfo.RunnerId, models.JobActionDelete)
 	if err != nil {
 		return s.handleRemoveError(ctx, t, err)
 	}
@@ -98,7 +98,7 @@ func (s *TargetService) ForceRemoveTarget(ctx context.Context, targetId string) 
 		}
 	}
 
-	err = s.createJob(ctx, t.Id, models.JobActionForceDelete)
+	err = s.createJob(ctx, t.Id, t.TargetConfig.ProviderInfo.RunnerId, models.JobActionForceDelete)
 	if err != nil {
 		return s.handleRemoveError(ctx, t, err)
 	}

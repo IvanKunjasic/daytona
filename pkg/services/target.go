@@ -20,6 +20,7 @@ type ITargetService interface {
 	StartTarget(ctx context.Context, targetId string) error
 	StopTarget(ctx context.Context, targetId string) error
 	SetDefault(ctx context.Context, targetId string) error
+	UpdateTargetProviderMetadata(ctx context.Context, targetId, providerMetadata string) error
 	RemoveTarget(ctx context.Context, targetId string) error
 	ForceRemoveTarget(ctx context.Context, targetId string) error
 	HandleSuccessfulCreation(ctx context.Context, targetId string) error
@@ -30,7 +31,6 @@ type ITargetService interface {
 type TargetDTO struct {
 	models.Target
 	State models.ResourceState `json:"state" validate:"required"`
-	Info  *models.TargetInfo   `json:"info" validate:"optional"`
 } //	@name	TargetDTO
 
 type CreateTargetDTO struct {
@@ -40,7 +40,6 @@ type CreateTargetDTO struct {
 } //	@name	CreateTargetDTO
 
 type TargetRetrievalParams struct {
-	Verbose     bool
 	ShowDeleted bool
 }
 
