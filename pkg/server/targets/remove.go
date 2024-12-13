@@ -39,7 +39,7 @@ func (s *TargetService) RemoveTarget(ctx context.Context, targetId string) error
 		return s.handleRemoveError(ctx, t, err)
 	}
 
-	metadata, err := s.targetMetadataStore.Find(ctx, &stores.TargetMetadataFilter{TargetId: &targetId})
+	metadata, err := s.targetMetadataStore.Find(ctx, targetId)
 	if err != nil {
 		return s.handleRemoveError(ctx, t, err)
 	}
@@ -86,7 +86,7 @@ func (s *TargetService) ForceRemoveTarget(ctx context.Context, targetId string) 
 		log.Error(err)
 	}
 
-	metadata, err := s.targetMetadataStore.Find(ctx, &stores.TargetMetadataFilter{TargetId: &targetId})
+	metadata, err := s.targetMetadataStore.Find(ctx, targetId)
 	if err != nil {
 		// Should not fail the whole operation if the metadata cannot be found
 		log.Error(err)

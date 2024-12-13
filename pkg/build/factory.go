@@ -4,8 +4,6 @@
 package build
 
 import (
-	"context"
-	"errors"
 	"fmt"
 
 	"github.com/daytonaio/daytona/pkg/common"
@@ -13,13 +11,11 @@ import (
 	"github.com/daytonaio/daytona/pkg/models"
 	"github.com/daytonaio/daytona/pkg/ports"
 	"github.com/daytonaio/daytona/pkg/services"
-	"github.com/daytonaio/daytona/pkg/stores"
 	"github.com/docker/docker/pkg/stringid"
 )
 
 type IBuilderFactory interface {
 	Create(build models.Build, workspaceDir string) (IBuilder, error)
-	CheckExistingBuild(build models.Build) (*models.Build, error)
 }
 
 type BuilderFactory struct {
@@ -60,26 +56,6 @@ func NewBuilderFactory(config BuilderFactoryConfig) IBuilderFactory {
 func (f *BuilderFactory) Create(build models.Build, workspaceDir string) (IBuilder, error) {
 	// TODO: Implement factory logic after adding prebuilds and other builder types
 	return f.newDevcontainerBuilder(workspaceDir)
-}
-
-func (f *BuilderFactory) CheckExistingBuild(b models.Build) (*models.Build, error) {
-	if b.Repository == nil {
-		return nil, errors.New("repository must be set")
-	}
-
-	build, err := f.buildService.Find(context.Background(), &services.BuildFilter{
-		StoreFilter: stores.BuildFilter{
-			Branch:        &b.Repository.Branch,
-			RepositoryUrl: &b.Repository.Url,
-			BuildConfig:   b.BuildConfig,
-			EnvVars:       &b.EnvVars,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &build.Build, nil
 }
 
 func (f *BuilderFactory) newDevcontainerBuilder(workspaceDir string) (*DevcontainerBuilder, error) {

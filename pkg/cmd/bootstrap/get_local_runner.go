@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/daytonaio/daytona/internal"
 	"github.com/daytonaio/daytona/internal/util"
 	"github.com/daytonaio/daytona/pkg/build"
 	"github.com/daytonaio/daytona/pkg/common"
@@ -40,7 +39,6 @@ type LocalRunnerParams struct {
 	RunnerConfig     *runner.Config
 	ConfigDir        string
 	LogWriter        io.Writer
-	Version          string
 	TelemetryService telemetry.TelemetryService
 }
 
@@ -327,8 +325,6 @@ func InitProviderManager(c *server.Config, runnerConfig *runner.Config, configDi
 
 	headscaleUrl := util.GetFrpcHeadscaleUrl(c.Frps.Protocol, c.Id, c.Frps.Domain)
 
-	version := internal.Version
-
 	dbPath, err := getDbPath()
 	if err != nil {
 		return err
@@ -353,7 +349,6 @@ func InitProviderManager(c *server.Config, runnerConfig *runner.Config, configDi
 		RunnerId:           runnerConfig.Id,
 		DaytonaDownloadUrl: getDaytonaScriptUrl(c),
 		ServerUrl:          headscaleUrl,
-		ServerVersion:      version,
 		RegistryUrl:        c.RegistryUrl,
 		BaseDir:            runnerConfig.ProvidersDir,
 		CreateProviderNetworkKey: func(ctx context.Context, providerName string) (string, error) {

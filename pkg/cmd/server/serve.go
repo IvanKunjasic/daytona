@@ -151,7 +151,6 @@ var ServeCmd = &cobra.Command{
 				ServerConfig:     c,
 				RunnerConfig:     runnerConfig,
 				ConfigDir:        configDir,
-				Version:          internal.Version,
 				TelemetryService: telemetryService,
 				LogWriter:        runnerLogWriter,
 			})
