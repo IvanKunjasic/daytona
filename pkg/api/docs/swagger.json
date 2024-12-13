@@ -3327,7 +3327,6 @@
             "required": [
                 "providers",
                 "runnerId",
-                "runningJobs",
                 "updatedAt",
                 "uptime"
             ],
@@ -3479,7 +3478,6 @@
             "type": "object",
             "required": [
                 "providers",
-                "runningJobs",
                 "uptime"
             ],
             "properties": {

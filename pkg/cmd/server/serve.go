@@ -245,16 +245,18 @@ func startLocalRunner(params bootstrap.LocalRunnerParams) error {
 	runnerService := server.GetInstance(nil).RunnerService
 
 	_, err := runnerService.GetRunner(context.Background(), "local")
-	if stores.IsRunnerNotFound(err) {
-		_, err := runnerService.RegisterRunner(context.Background(), services.RegisterRunnerDTO{
-			Id:    "local",
-			Alias: "local",
-		})
-		if err != nil {
+	if err != nil {
+		if stores.IsRunnerNotFound(err) {
+			_, err := runnerService.RegisterRunner(context.Background(), services.RegisterRunnerDTO{
+				Id:    "local",
+				Alias: "local",
+			})
+			if err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
-	} else if err != nil {
-		return err
 	}
 
 	log.Info("Starting local job runner...")

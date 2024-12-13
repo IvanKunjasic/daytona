@@ -22,7 +22,7 @@ var _ MappedNullable = &SetRunnerMetadata{}
 // SetRunnerMetadata struct for SetRunnerMetadata
 type SetRunnerMetadata struct {
 	Providers   []ProviderInfo `json:"providers"`
-	RunningJobs int32          `json:"runningJobs"`
+	RunningJobs *int32         `json:"runningJobs,omitempty"`
 	Uptime      int32          `json:"uptime"`
 }
 
@@ -32,10 +32,9 @@ type _SetRunnerMetadata SetRunnerMetadata
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewSetRunnerMetadata(providers []ProviderInfo, runningJobs int32, uptime int32) *SetRunnerMetadata {
+func NewSetRunnerMetadata(providers []ProviderInfo, uptime int32) *SetRunnerMetadata {
 	this := SetRunnerMetadata{}
 	this.Providers = providers
-	this.RunningJobs = runningJobs
 	this.Uptime = uptime
 	return &this
 }
@@ -72,28 +71,36 @@ func (o *SetRunnerMetadata) SetProviders(v []ProviderInfo) {
 	o.Providers = v
 }
 
-// GetRunningJobs returns the RunningJobs field value
+// GetRunningJobs returns the RunningJobs field value if set, zero value otherwise.
 func (o *SetRunnerMetadata) GetRunningJobs() int32 {
-	if o == nil {
+	if o == nil || IsNil(o.RunningJobs) {
 		var ret int32
 		return ret
 	}
-
-	return o.RunningJobs
+	return *o.RunningJobs
 }
 
-// GetRunningJobsOk returns a tuple with the RunningJobs field value
+// GetRunningJobsOk returns a tuple with the RunningJobs field value if set, nil otherwise
 // and a boolean to check if the value has been set.
 func (o *SetRunnerMetadata) GetRunningJobsOk() (*int32, bool) {
-	if o == nil {
+	if o == nil || IsNil(o.RunningJobs) {
 		return nil, false
 	}
-	return &o.RunningJobs, true
+	return o.RunningJobs, true
 }
 
-// SetRunningJobs sets field value
+// HasRunningJobs returns a boolean if a field has been set.
+func (o *SetRunnerMetadata) HasRunningJobs() bool {
+	if o != nil && !IsNil(o.RunningJobs) {
+		return true
+	}
+
+	return false
+}
+
+// SetRunningJobs gets a reference to the given int32 and assigns it to the RunningJobs field.
 func (o *SetRunnerMetadata) SetRunningJobs(v int32) {
-	o.RunningJobs = v
+	o.RunningJobs = &v
 }
 
 // GetUptime returns the Uptime field value
@@ -131,7 +138,9 @@ func (o SetRunnerMetadata) MarshalJSON() ([]byte, error) {
 func (o SetRunnerMetadata) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["providers"] = o.Providers
-	toSerialize["runningJobs"] = o.RunningJobs
+	if !IsNil(o.RunningJobs) {
+		toSerialize["runningJobs"] = o.RunningJobs
+	}
 	toSerialize["uptime"] = o.Uptime
 	return toSerialize, nil
 }
@@ -142,7 +151,6 @@ func (o *SetRunnerMetadata) UnmarshalJSON(data []byte) (err error) {
 	// that every required field exists as a key in the generic map.
 	requiredProperties := []string{
 		"providers",
-		"runningJobs",
 		"uptime",
 	}
 

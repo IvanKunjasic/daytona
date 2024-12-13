@@ -55,7 +55,6 @@ type ProviderManagerConfig struct {
 	RunnerId                 string
 	DaytonaDownloadUrl       string
 	ServerUrl                string
-	ServerVersion            string
 	ApiUrl                   string
 	LogsDir                  string
 	RegistryUrl              string
@@ -81,7 +80,6 @@ func GetProviderManager(config *ProviderManagerConfig) *ProviderManager {
 			runnerId:                 config.RunnerId,
 			daytonaDownloadUrl:       config.DaytonaDownloadUrl,
 			serverUrl:                config.ServerUrl,
-			serverVersion:            config.ServerVersion,
 			apiUrl:                   config.ApiUrl,
 			logsDir:                  config.LogsDir,
 			getTargetConfigMap:       config.GetTargetConfigMap,

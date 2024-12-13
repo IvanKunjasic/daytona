@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/daytonaio/daytona/internal/util"
 	"github.com/daytonaio/daytona/pkg/jobs"
 	"github.com/daytonaio/daytona/pkg/jobs/build"
 	"github.com/daytonaio/daytona/pkg/jobs/runner"
@@ -222,6 +223,6 @@ func (r *Runner) UpdateRunnerMetadata(config *Config) error {
 	return r.setRunnerMetadata(context.Background(), r.Config.Id, models.RunnerMetadata{
 		Uptime:      uint64(uptime),
 		Providers:   providerInfos,
-		RunningJobs: 0,
+		RunningJobs: util.Pointer(uint64(0)),
 	})
 }

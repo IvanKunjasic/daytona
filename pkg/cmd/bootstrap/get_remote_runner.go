@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/daytonaio/daytona/internal/util"
-	apiclient_util "github.com/daytonaio/daytona/internal/util/apiclient"
 	"github.com/daytonaio/daytona/internal/util/apiclient/conversion"
 	"github.com/daytonaio/daytona/pkg/apiclient"
 	"github.com/daytonaio/daytona/pkg/build"
+	"github.com/daytonaio/daytona/pkg/common"
 	"github.com/daytonaio/daytona/pkg/docker"
 	jobs_build "github.com/daytonaio/daytona/pkg/jobs/build"
 	jobs_runner "github.com/daytonaio/daytona/pkg/jobs/runner"
@@ -34,6 +34,8 @@ import (
 )
 
 type RemoteRunnerParams struct {
+	ApiClient        *apiclient.APIClient
+	ServerConfig     *apiclient.ServerConfig
 	RunnerConfig     *runner.Config
 	ConfigDir        string
 	LogWriter        io.Writer
@@ -48,20 +50,9 @@ type RemoteJobFactoryParams struct {
 }
 
 func GetRemoteRunner(params RemoteRunnerParams) (runner.IRunner, error) {
-	ctx := context.Background()
-
-	apiClient, err := apiclient_util.GetRunnerApiClient(params.RunnerConfig.ServerApiUrl, params.RunnerConfig.ServerApiKey, params.RunnerConfig.ClientId, params.RunnerConfig.TelemetryEnabled)
-	if err != nil {
-		return nil, err
-	}
-
-	serverConfig, _, err := apiClient.ServerAPI.GetConfig(ctx).Execute()
-	if err != nil {
-		return nil, err
-	}
-
 	jobFactoryParams := RemoteJobFactoryParams{
-		ServerConfig:     serverConfig,
+		ApiClient:        params.ApiClient,
+		ServerConfig:     params.ServerConfig,
 		ConfigDir:        params.ConfigDir,
 		TelemetryService: params.TelemetryService,
 	}
@@ -93,7 +84,7 @@ func GetRemoteRunner(params RemoteRunnerParams) (runner.IRunner, error) {
 		LogWriter:       params.LogWriter,
 		ProviderManager: providermanager,
 		ListPendingJobs: func(ctx context.Context) ([]*models.Job, error) {
-			jobs, _, err := apiClient.RunnerAPI.ListRunnerJobs(ctx, params.RunnerConfig.ClientId).Execute()
+			jobs, _, err := params.ApiClient.RunnerAPI.ListRunnerJobs(ctx, params.RunnerConfig.ClientId).Execute()
 			if err != nil {
 				return nil, err
 			}
@@ -120,7 +111,7 @@ func GetRemoteRunner(params RemoteRunnerParams) (runner.IRunner, error) {
 			if jobError != nil {
 				jobErr = util.Pointer((*jobError).Error())
 			}
-			_, err := apiClient.RunnerAPI.UpdateJobState(ctx, params.RunnerConfig.Id, jobId).UpdateJobState(apiclient.UpdateJobState{
+			_, err := params.ApiClient.RunnerAPI.UpdateJobState(ctx, params.RunnerConfig.Id, jobId).UpdateJobState(apiclient.UpdateJobState{
 				State:        apiclient.JobState(state),
 				ErrorMessage: jobErr,
 			}).Execute()
@@ -132,11 +123,16 @@ func GetRemoteRunner(params RemoteRunnerParams) (runner.IRunner, error) {
 				providers = append(providers, *conversion.ToApiClientProviderInfo(&provider))
 			}
 
-			_, err := apiClient.RunnerAPI.SetRunnerMetadata(ctx, runnerId).SetMetadata(apiclient.SetRunnerMetadata{
-				Uptime:      int32(metadata.Uptime),
-				Providers:   providers,
-				RunningJobs: int32(metadata.RunningJobs),
-			}).Execute()
+			setRunnerMetadata := apiclient.SetRunnerMetadata{
+				Uptime:    int32(metadata.Uptime),
+				Providers: providers,
+			}
+
+			if metadata.RunningJobs != nil {
+				setRunnerMetadata.RunningJobs = util.Pointer(int32(*metadata.RunningJobs))
+			}
+
+			_, err := params.ApiClient.RunnerAPI.SetRunnerMetadata(ctx, runnerId).SetMetadata(setRunnerMetadata).Execute()
 
 			return err
 		},
@@ -144,63 +140,6 @@ func GetRemoteRunner(params RemoteRunnerParams) (runner.IRunner, error) {
 		TargetJobFactory:    targetJobFactory,
 		BuildJobFactory:     buildJobFactory,
 		RunnerJobFactory:    runnerJobFactory,
-	}), nil
-}
-
-func getRemoteWorkspaceJobFactory(params RemoteJobFactoryParams) (workspace.IWorkspaceJobFactory, error) {
-	targetLogsDir, err := server.GetTargetLogsDir(params.ConfigDir)
-	if err != nil {
-		return nil, err
-	}
-	buildLogsDir, err := build.GetBuildLogsDir()
-	if err != nil {
-		return nil, err
-	}
-	loggerFactory := logs.NewLoggerFactory(&targetLogsDir, &buildLogsDir)
-
-	providerManager := providermanager.GetProviderManager(nil)
-
-	return workspace.NewWorkspaceJobFactory(workspace.WorkspaceJobFactoryConfig{
-		FindWorkspace: func(ctx context.Context, workspaceId string) (*models.Workspace, error) {
-			workspaceDto, _, err := params.ApiClient.WorkspaceAPI.GetWorkspace(ctx, workspaceId).Execute()
-			if err != nil {
-				return nil, err
-			}
-			return conversion.ToWorkspace(workspaceDto), nil
-		},
-		FindTarget: func(ctx context.Context, targetId string) (*models.Target, error) {
-			targetDto, _, err := params.ApiClient.TargetAPI.GetTarget(ctx, targetId).Execute()
-			if err != nil {
-				return nil, err
-			}
-			return conversion.ToTarget(targetDto), nil
-		},
-		UpdateWorkspaceProviderMetadata: func(ctx context.Context, workspaceId, providerMetadata string) error {
-			_, err := params.ApiClient.WorkspaceAPI.UpdateWorkspaceProviderMetadata(ctx, workspaceId).Metadata(providerMetadata).Execute()
-			return err
-		},
-		FindGitProviderConfig: func(ctx context.Context, id string) (*models.GitProviderConfig, error) {
-			gp, _, err := params.ApiClient.GitProviderAPI.GetGitProvider(ctx, id).Execute()
-			if err != nil {
-				return nil, err
-			}
-
-			return conversion.ToGitProviderConfig(gp), nil
-		},
-		GetWorkspaceEnvironmentVariables: func(ctx context.Context, w *models.Workspace) (map[string]string, error) {
-			_, _, err := params.ApiClient.EnvVarAPI.ListEnvironmentVariables(ctx).Execute()
-			if err != nil {
-				return nil, err
-			}
-			return make(map[string]string), nil
-			// return util.MergeEnvVars(envVars, w.EnvVars), nil
-		},
-		TrackTelemetryEvent: func(event telemetry.ServerEvent, clientId string, props map[string]interface{}) error {
-			return params.TelemetryService.TrackServerEvent(event, clientId, props)
-		},
-		LoggerFactory:   loggerFactory,
-		ProviderManager: providerManager,
-		BuilderImage:    params.ServerConfig.BuilderImage,
 	}), nil
 }
 
@@ -264,6 +203,63 @@ func InitRemoteProviderManager(apiClient *apiclient.APIClient, c *apiclient.Serv
 func getRemoteDaytonaScriptUrl(serverUrl string) string {
 	url, _ := url.JoinPath(serverUrl, "binary", "script")
 	return url
+}
+
+func getRemoteWorkspaceJobFactory(params RemoteJobFactoryParams) (workspace.IWorkspaceJobFactory, error) {
+	targetLogsDir, err := server.GetTargetLogsDir(params.ConfigDir)
+	if err != nil {
+		return nil, err
+	}
+	buildLogsDir, err := build.GetBuildLogsDir()
+	if err != nil {
+		return nil, err
+	}
+	loggerFactory := logs.NewLoggerFactory(&targetLogsDir, &buildLogsDir)
+
+	providerManager := providermanager.GetProviderManager(nil)
+
+	return workspace.NewWorkspaceJobFactory(workspace.WorkspaceJobFactoryConfig{
+		FindWorkspace: func(ctx context.Context, workspaceId string) (*models.Workspace, error) {
+			workspaceDto, _, err := params.ApiClient.WorkspaceAPI.GetWorkspace(ctx, workspaceId).Execute()
+			if err != nil {
+				return nil, err
+			}
+			return conversion.ToWorkspace(workspaceDto), nil
+		},
+		FindTarget: func(ctx context.Context, targetId string) (*models.Target, error) {
+			targetDto, _, err := params.ApiClient.TargetAPI.GetTarget(ctx, targetId).Execute()
+			if err != nil {
+				return nil, err
+			}
+			return conversion.ToTarget(targetDto), nil
+		},
+		UpdateWorkspaceProviderMetadata: func(ctx context.Context, workspaceId, providerMetadata string) error {
+			_, err := params.ApiClient.WorkspaceAPI.UpdateWorkspaceProviderMetadata(ctx, workspaceId).Metadata(providerMetadata).Execute()
+			return err
+		},
+		FindGitProviderConfig: func(ctx context.Context, id string) (*models.GitProviderConfig, error) {
+			gp, _, err := params.ApiClient.GitProviderAPI.GetGitProvider(ctx, id).Execute()
+			if err != nil {
+				return nil, err
+			}
+
+			return conversion.ToGitProviderConfig(gp), nil
+		},
+		GetWorkspaceEnvironmentVariables: func(ctx context.Context, w *models.Workspace) (map[string]string, error) {
+			_, _, err := params.ApiClient.EnvVarAPI.ListEnvironmentVariables(ctx).Execute()
+			if err != nil {
+				return nil, err
+			}
+			return make(map[string]string), nil
+			// return util.MergeEnvVars(envVars, w.EnvVars), nil
+		},
+		TrackTelemetryEvent: func(event telemetry.ServerEvent, clientId string, props map[string]interface{}) error {
+			return params.TelemetryService.TrackServerEvent(event, clientId, props)
+		},
+		LoggerFactory:   loggerFactory,
+		ProviderManager: providerManager,
+		BuilderImage:    params.ServerConfig.BuilderImage,
+	}), nil
 }
 
 func getRemoteTargetJobFactory(params RemoteJobFactoryParams) (target.ITargetJobFactory, error) {
@@ -332,16 +328,29 @@ func getRemoteBuildJobFactory(params RemoteJobFactoryParams) (jobs_build.IBuildJ
 
 	var builderRegistry *models.ContainerRegistry
 
-	// envVars, err := envVarService.Map(ctx)
-	// if err != nil {
-	// 	builderRegistry = &models.ContainerRegistry{
-	// 		Server: params.ServerConfig.BuilderRegistryServer,
-	// 	}
-	// } else {
-	// 	builderRegistry = envVars.FindContainerRegistry(params.ServerConfig.BuilderRegistryServer)
-	// }
+	envVars, _, err := params.ApiClient.EnvVarAPI.ListEnvironmentVariables(context.Background()).Execute()
+	if err != nil {
+		builderRegistry = &models.ContainerRegistry{
+			Server: params.ServerConfig.BuilderRegistryServer,
+		}
+	}
 
-	// cr := envVars.FindContainerRegistryByImageName(params.ServerConfig.BuilderImage)
+	envVarsMap := make(services.EnvironmentVariables)
+	for _, envVar := range envVars {
+		envVarsMap[envVar.Key] = envVar.Value
+	}
+
+	if len(envVarsMap) > 0 {
+		builderRegistry = envVarsMap.FindContainerRegistry(params.ServerConfig.BuilderRegistryServer)
+	}
+
+	if builderRegistry == nil {
+		builderRegistry = &models.ContainerRegistry{
+			Server: util.GetFrpcRegistryDomain(params.ServerConfig.Id, params.ServerConfig.Frps.Domain),
+		}
+	}
+
+	_, containerRegistries := common.ExtractContainerRegistryFromEnvVars(envVarsMap)
 
 	return jobs_build.NewBuildJobFactory(jobs_build.BuildJobFactoryConfig{
 		FindBuild: func(ctx context.Context, buildId string) (*services.BuildDTO, error) {
@@ -382,14 +391,13 @@ func getRemoteBuildJobFactory(params RemoteJobFactoryParams) (jobs_build.IBuildJ
 		},
 		LoggerFactory: loggerFactory,
 		BuilderFactory: build.NewBuilderFactory(build.BuilderFactoryConfig{
-			Image: params.ServerConfig.BuilderImage,
-			// ContainerRegistry:           cr,
+			Image:                       params.ServerConfig.BuilderImage,
+			ContainerRegistries:         containerRegistries,
 			BuildImageContainerRegistry: builderRegistry,
-			// BuildService:                buildService,
-			BuildImageNamespace:   buildImageNamespace,
-			LoggerFactory:         loggerFactory,
-			DefaultWorkspaceImage: params.ServerConfig.DefaultWorkspaceImage,
-			DefaultWorkspaceUser:  params.ServerConfig.DefaultWorkspaceUser,
+			BuildImageNamespace:         buildImageNamespace,
+			LoggerFactory:               loggerFactory,
+			DefaultWorkspaceImage:       params.ServerConfig.DefaultWorkspaceImage,
+			DefaultWorkspaceUser:        params.ServerConfig.DefaultWorkspaceUser,
 		}),
 		BasePath: filepath.Join(params.ConfigDir, "builds"),
 	}), nil
@@ -400,7 +408,7 @@ func getRemoteRunnerJobFactory(params RemoteJobFactoryParams) (jobs_runner.IRunn
 
 	return jobs_runner.NewRunnerJobFactory(jobs_runner.RunnerJobFactoryConfig{
 		TrackTelemetryEvent: func(event telemetry.BuildRunnerEvent, clientId string, props map[string]interface{}) error {
-			return params.TelemetryService.TrackBuildRunnerEvent(event, clientId, props)
+			return params.TelemetryService.TrackRunnerEvent(event, clientId, props)
 		},
 		ProviderManager: providerManager,
 	}), nil

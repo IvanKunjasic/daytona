@@ -294,11 +294,11 @@ func getLocalBuildJobFactory(params LocalJobFactoryParams) (jobs_build.IBuildJob
 			ContainerRegistries:         containerRegistries,
 			Image:                       params.ServerConfig.BuilderImage,
 			BuildImageContainerRegistry: builderRegistry,
-			BuildService:                buildService,
-			BuildImageNamespace:         buildImageNamespace,
-			LoggerFactory:               loggerFactory,
-			DefaultWorkspaceImage:       params.ServerConfig.DefaultWorkspaceImage,
-			DefaultWorkspaceUser:        params.ServerConfig.DefaultWorkspaceUser,
+
+			BuildImageNamespace:   buildImageNamespace,
+			LoggerFactory:         loggerFactory,
+			DefaultWorkspaceImage: params.ServerConfig.DefaultWorkspaceImage,
+			DefaultWorkspaceUser:  params.ServerConfig.DefaultWorkspaceUser,
 		}),
 		BasePath: filepath.Join(params.ConfigDir, "builds"),
 	}), nil

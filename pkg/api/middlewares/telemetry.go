@@ -22,6 +22,8 @@ var ignoreTelemetryPaths = map[string]bool{
 	"/target/:targetId":                true,
 	"/workspace/:workspaceId/metadata": true,
 	"/workspace/:workspaceId":          true,
+	"/runner/:runnerId/metadata":       true,
+	"/runner/:runnerId":                true,
 	"/server/network-key":              true,
 	"/job/":                            true,
 }

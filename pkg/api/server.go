@@ -300,7 +300,6 @@ func (a *ApiServer) Start() error {
 	runnerGroup.Use(middlewares.RunnerAuthMiddleware())
 	{
 		runnerGroup.POST(runnerController.BasePath()+"/:runnerId/metadata", runner.SetRunnerMetadata)
-		runnerGroup.POST(runnerController.BasePath()+"/:runnerId/metadata", runner.SetRunnerMetadata)
 		runnerGroup.GET(runnerController.BasePath()+"/:runnerId/jobs", runner.ListRunnerJobs)
 		runnerGroup.POST(runnerController.BasePath()+"/:runnerId/jobs/:jobId/state", runner.UpdateJobState)
 	}

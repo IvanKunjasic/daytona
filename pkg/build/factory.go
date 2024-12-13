@@ -10,7 +10,6 @@ import (
 	"github.com/daytonaio/daytona/pkg/logs"
 	"github.com/daytonaio/daytona/pkg/models"
 	"github.com/daytonaio/daytona/pkg/ports"
-	"github.com/daytonaio/daytona/pkg/services"
 	"github.com/docker/docker/pkg/stringid"
 )
 
@@ -22,7 +21,6 @@ type BuilderFactory struct {
 	containerRegistries         common.ContainerRegistries
 	buildImageContainerRegistry *models.ContainerRegistry
 	buildImageNamespace         string
-	buildService                services.IBuildService
 	loggerFactory               logs.LoggerFactory
 	image                       string
 	defaultWorkspaceImage       string
@@ -33,7 +31,6 @@ type BuilderFactoryConfig struct {
 	Image                       string
 	ContainerRegistries         common.ContainerRegistries
 	BuildImageContainerRegistry *models.ContainerRegistry
-	BuildService                services.IBuildService
 	BuildImageNamespace         string // Namespace to be used when tagging and pushing the build image
 	LoggerFactory               logs.LoggerFactory
 	DefaultWorkspaceImage       string
@@ -46,7 +43,6 @@ func NewBuilderFactory(config BuilderFactoryConfig) IBuilderFactory {
 		containerRegistries:         config.ContainerRegistries,
 		buildImageNamespace:         config.BuildImageNamespace,
 		buildImageContainerRegistry: config.BuildImageContainerRegistry,
-		buildService:                config.BuildService,
 		loggerFactory:               config.LoggerFactory,
 		defaultWorkspaceImage:       config.DefaultWorkspaceImage,
 		defaultWorkspaceUser:        config.DefaultWorkspaceUser,
@@ -76,7 +72,6 @@ func (f *BuilderFactory) newDevcontainerBuilder(workspaceDir string) (*Devcontai
 			containerRegistries:         f.containerRegistries,
 			buildImageContainerRegistry: f.buildImageContainerRegistry,
 			buildImageNamespace:         f.buildImageNamespace,
-			buildService:                f.buildService,
 			loggerFactory:               f.loggerFactory,
 			defaultWorkspaceImage:       f.defaultWorkspaceImage,
 			defaultWorkspaceUser:        f.defaultWorkspaceUser,

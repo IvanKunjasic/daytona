@@ -2834,7 +2834,6 @@ components:
       required:
       - providers
       - runnerId
-      - runningJobs
       - updatedAt
       - uptime
       type: object
@@ -3016,7 +3015,6 @@ components:
           type: integer
       required:
       - providers
-      - runningJobs
       - uptime
       type: object
     SetTargetMetadata:

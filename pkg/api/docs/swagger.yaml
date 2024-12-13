@@ -658,7 +658,6 @@ definitions:
     required:
     - providers
     - runnerId
-    - runningJobs
     - updatedAt
     - uptime
     type: object
@@ -760,7 +759,6 @@ definitions:
         type: integer
     required:
     - providers
-    - runningJobs
     - uptime
     type: object
   SetTargetMetadata:

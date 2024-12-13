@@ -3330,7 +3330,6 @@ const docTemplate = `{
             "required": [
                 "providers",
                 "runnerId",
-                "runningJobs",
                 "updatedAt",
                 "uptime"
             ],
@@ -3482,7 +3481,6 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "providers",
-                "runningJobs",
                 "uptime"
             ],
             "properties": {

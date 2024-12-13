@@ -7,8 +7,6 @@ import (
 	"context"
 
 	"github.com/daytonaio/daytona/pkg/stores"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func (s *RunnerService) RemoveRunner(ctx context.Context, runnerId string) error {
@@ -43,8 +41,7 @@ func (s *RunnerService) RemoveRunner(ctx context.Context, runnerId string) error
 
 	err = s.revokeApiKey(ctx, runner.Alias)
 	if err != nil {
-		// Should not fail the whole operation if the API key cannot be revoked
-		log.Error(err)
+		return s.runnerStore.RollbackTransaction(ctx, err)
 	}
 
 	err = s.runnerStore.CommitTransaction(ctx)

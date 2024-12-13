@@ -5,14 +5,14 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **Providers** | [**[]ProviderInfo**](ProviderInfo.md) |  | 
-**RunningJobs** | **int32** |  | 
+**RunningJobs** | Pointer to **int32** |  | [optional] 
 **Uptime** | **int32** |  | 
 
 ## Methods
 
 ### NewSetRunnerMetadata
 
-`func NewSetRunnerMetadata(providers []ProviderInfo, runningJobs int32, uptime int32, ) *SetRunnerMetadata`
+`func NewSetRunnerMetadata(providers []ProviderInfo, uptime int32, ) *SetRunnerMetadata`
 
 NewSetRunnerMetadata instantiates a new SetRunnerMetadata object
 This constructor will assign default values to properties that have it defined,
@@ -66,6 +66,11 @@ and a boolean to check if the value has been set.
 
 SetRunningJobs sets RunningJobs field to given value.
 
+### HasRunningJobs
+
+`func (o *SetRunnerMetadata) HasRunningJobs() bool`
+
+HasRunningJobs returns a boolean if a field has been set.
 
 ### GetUptime
 

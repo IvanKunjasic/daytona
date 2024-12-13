@@ -28,7 +28,7 @@ type RunnerMetadata struct {
 	RunnerId    string         `json:"runnerId" validate:"required" gorm:"primaryKey"`
 	UpdatedAt   time.Time      `json:"updatedAt" validate:"required" gorm:"not null"`
 	Uptime      uint64         `json:"uptime" validate:"required" gorm:"not null"`
-	RunningJobs uint64         `json:"runningJobs" validate:"required" gorm:"not null"`
+	RunningJobs *uint64        `json:"runningJobs" validate:"optional" gorm:"not null"`
 	Providers   []ProviderInfo `json:"providers" validate:"required" gorm:"serializer:json;not null"`
 } // @name RunnerMetadata
 
